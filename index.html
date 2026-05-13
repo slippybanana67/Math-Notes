@@ -127,12 +127,12 @@
 <header>
   <h1>📐 Math Notes</h1>
   <div class="unit-btns">
-    <button class="unit-btn" onclick="loadUnit(6)">Unit 6</button>
-    <button class="unit-btn" onclick="loadUnit(7)">Unit 7</button>
-    <button class="unit-btn" onclick="loadUnit(8)">Unit 8</button>
-    <button class="unit-btn" onclick="loadUnit(9)">Unit 9</button>
-    <button class="unit-btn" onclick="loadUnit(10)">Unit 10</button>
-    <button class="unit-btn" onclick="loadUnit(11)">Unit 11</button>
+    <button class="unit-btn" onclick="loadUnit(6, this)">Unit 6</button>
+    <button class="unit-btn" onclick="loadUnit(7, this)">Unit 7</button>
+    <button class="unit-btn" onclick="loadUnit(8, this)">Unit 8</button>
+    <button class="unit-btn" onclick="loadUnit(9, this)">Unit 9</button>
+    <button class="unit-btn" onclick="loadUnit(10, this)">Unit 10</button>
+    <button class="unit-btn" onclick="loadUnit(11, this)">Unit 11</button>
   </div>
   <span id="status"></span>
 </header>
@@ -158,12 +158,12 @@
     11: '11 Notebook.pdf',
   };
 
-  let currentTask = null; // abort token
+  let currentTask = null; // cancellation flag
 
-  async function loadUnit(unitNum) {
+  async function loadUnit(unitNum, btn) {
     // Mark active button
     document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
-    event.target.classList.add('active');
+    btn.classList.add('active');
 
     // Cancel any in-progress render
     if (currentTask) currentTask.cancelled = true;
@@ -183,8 +183,6 @@
 
     const statusEl = document.getElementById('status');
     statusEl.textContent = 'Loading…';
-
-    const url = encodeURIComponent(UNITS[unitNum]);
 
     let pdfDoc;
     try {
