@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Math Notes Viewer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #16213e;
+      padding: 14px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    header h1 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #e94560;
+      white-space: nowrap;
+    }
+
+    .unit-btns {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .unit-btn {
+      background: #0f3460;
+      border: 2px solid #0f3460;
+      color: #ccc;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .unit-btn:hover { border-color: #e94560; color: #fff; }
+    .unit-btn.active { background: #e94560; border-color: #e94560; color: #fff; font-weight: 700; }
+
+    #status {
+      margin-left: auto;
+      font-size: 0.85rem;
+      color: #aaa;
+      white-space: nowrap;
+    }
+
+    #pages {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .page-wrapper {
+      position: relative;
+      background: #fff;
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      max-width: 900px;
+      width: 100%;
+    }
+
+    .page-wrapper canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .page-num {
+      position: absolute;
+      bottom: 6px;
+      right: 8px;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      font-size: 0.75rem;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    #placeholder {
+      text-align: center;
+      padding: 80px 20px;
+      color: #666;
+    }
+
+    #placeholder h2 { font-size: 1.8rem; margin-bottom: 10px; color: #e94560; }
+    #placeholder p { font-size: 1rem; }
+
+    #progress-bar-wrap {
+      width: 100%;
+      max-width: 900px;
+      background: #0f3460;
+      border-radius: 4px;
+      overflow: hidden;
+      height: 6px;
+    }
+    #progress-bar {
+      height: 100%;
+      background: #e94560;
+      width: 0%;
+      transition: width 0.3s;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>📐 Math Notes</h1>
+  <div class="unit-btns">
+    <button class="unit-btn" onclick="loadUnit(6)">Unit 6</button>
+    <button class="unit-btn" onclick="loadUnit(7)">Unit 7</button>
+    <button class="unit-btn" onclick="loadUnit(8)">Unit 8</button>
+    <button class="unit-btn" onclick="loadUnit(9)">Unit 9</button>
+    <button class="unit-btn" onclick="loadUnit(10)">Unit 10</button>
+    <button class="unit-btn" onclick="loadUnit(11)">Unit 11</button>
+  </div>
+  <span id="status"></span>
+</header>
+
+<div id="pages">
+  <div id="placeholder">
+    <h2>Select a Unit</h2>
+    <p>Click a unit button above to view notebook pages as images.</p>
+  </div>
+</div>
+
+<script>
+  // Point pdf.js at its worker
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const UNITS = {
+    6:  '6 Notebook.pdf',
+    7:  '7 Notebook.pdf',
+    8:  '8 Notebook.pdf',
+    9:  '9 Notebook.pdf',
+    10: '10 Notebook.pdf',
+    11: '11 Notebook.pdf',
+  };
+
+  let currentTask = null; // abort token
+
+  async function loadUnit(unitNum) {
+    // Mark active button
+    document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+
+    // Cancel any in-progress render
+    if (currentTask) currentTask.cancelled = true;
+    const task = { cancelled: false };
+    currentTask = task;
+
+    const pagesDiv = document.getElementById('pages');
+    pagesDiv.innerHTML = '';
+
+    // Progress bar
+    const pbWrap = document.createElement('div');
+    pbWrap.id = 'progress-bar-wrap';
+    const pb = document.createElement('div');
+    pb.id = 'progress-bar';
+    pbWrap.appendChild(pb);
+    pagesDiv.appendChild(pbWrap);
+
+    const statusEl = document.getElementById('status');
+    statusEl.textContent = 'Loading…';
+
+    const url = encodeURIComponent(UNITS[unitNum]);
+
+    let pdfDoc;
+    try {
+      pdfDoc = await pdfjsLib.getDocument(UNITS[unitNum]).promise;
+    } catch (e) {
+      pagesDiv.innerHTML = `<div id="placeholder"><h2>⚠️ Could not load PDF</h2><p>${e.message}</p></div>`;
+      statusEl.textContent = '';
+      return;
+    }
+
+    const total = pdfDoc.numPages;
+    statusEl.textContent = `Unit ${unitNum} · ${total} pages`;
+
+    for (let i = 1; i <= total; i++) {
+      if (task.cancelled) return;
+
+      // Update progress bar
+      pb.style.width = ((i - 1) / total * 100) + '%';
+
+      const page = await pdfDoc.getPage(i);
+
+      // Scale to ~150 DPI equivalent (default viewport is 72 DPI)
+      const scale = 2.0;
+      const viewport = page.getViewport({ scale });
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'page-wrapper';
+
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+
+      const numLabel = document.createElement('span');
+      numLabel.className = 'page-num';
+      numLabel.textContent = `Page ${i} / ${total}`;
+
+      wrapper.appendChild(canvas);
+      wrapper.appendChild(numLabel);
+      pagesDiv.appendChild(wrapper);
+
+      await page.render({
+        canvasContext: canvas.getContext('2d'),
+        viewport,
+      }).promise;
+
+      pb.style.width = (i / total * 100) + '%';
+    }
+
+    if (!task.cancelled) {
+      pbWrap.remove();
+      statusEl.textContent = `Unit ${unitNum} · ${total} pages ✓`;
+    }
+  }
+</script>
+</body>
+</html>
